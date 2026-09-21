@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>📸 Gallery · GitHub Pages</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #0b1a26;
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      color: #e7f1f9;
+      padding: 1.5rem;
+    }
+
+    .gallery-container {
+      max-width: 1200px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1.2rem;
+    }
+
+    /* header shows which folder is being viewed */
+    .gallery-header {
+      text-align: center;
+      padding: 0.5rem 0 0.2rem;
+    }
+
+    .gallery-header h1 {
+      font-weight: 400;
+      font-size: 1.6rem;
+      letter-spacing: -0.01em;
+      color: #a6cee3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+    }
+
+    .folder-badge {
+      background: #1e6f9f;
+      color: white;
+      padding: 0.2rem 0.9rem;
+      border-radius: 40px;
+      font-size: 1.2rem;
+      font-weight: 500;
+    }
+
+    /* single-image viewport with side arrows */
+    .viewer {
+      position: relative;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+
+    .image-stage {
+      position: relative;
+      flex: 1;
+      background: #112433;
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 25px 45px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px #1f3c50;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 55vh;
+      max-height: 75vh;
+      aspect-ratio: 16 / 10;
+      transition: background 0.2s;
+    }
+
+    .image-stage img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      background: #0b1a26;
+      transition: opacity 0.25s ease;
+    }
+
+    /* arrow buttons */
+    .nav-arrow {
+      background: rgba(20, 50, 70, 0.8);
+      backdrop-filter: blur(6px);
+      border: 1px solid #2d5c7a;
+      color: #e0f0ff;
+      width: 58px;
+      height: 58px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      font-weight: 300;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.2s ease;
+      box-shadow: 0 8px 18px -6px rgba(0, 0, 0, 0.6);
+      flex-shrink: 0;
+      line-height: 1;
+      padding-bottom: 4px; /* optical alignment */
+    }
+
+    .nav-arrow:hover:not(:disabled) {
+      background: #1e6f9f;
+      border-color: #3c8fc9;
+      transform: scale(1.05);
+    }
+
+    .nav-arrow:active:not(:disabled) {
+      transform: scale(0.97);
+    }
+
+    .nav-arrow:disabled {
+      opacity: 0.2;
+      cursor: not-allowed;
+      background: #142e3f;
+      border-color: #1d3f55;
+    }
+
+    /* bottom indicator */
+    .image-counter {
+      font-size: 1rem;
+      color: #8bb5d0;
+      letter-spacing: 0.03em;
+      background: #0e1e2b;
+      padding: 0.5rem 1.6rem;
+      border-radius: 50px;
+      border: 1px solid #1d3c51;
+      box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.5);
+      margin-top: 0.3rem;
+    }
+
+    /* status / loading / error */
+    .status-message {
+      text-align: center;
+      padding: 4rem 2rem;
+      background: #0e1e2b;
+      border-radius: 28px;
+      width: 100%;
+      font-size: 1.2rem;
+      color: #b3d6ef;
+      border: 1px solid #1f3c50;
+      box-shadow: 0 15px 30px -10px black;
+      grid-column: 1 / -1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.8rem;
+    }
+
+    .status-message i {
+      font-style: normal;
+      font-size: 2.8rem;
+      line-height: 1;
+    }
+
+    .status-message.error {
+      background: #2a1b1a;
+      color: #f4b9b0;
+      border-color: #663a35;
+    }
+
+    /* small footer note */
+    .footer-note {
+      font-size: 0.8rem;
+      color: #5c7f97;
+      text-align: center;
+      margin-top: 0.5rem;
+    }
+
+    /* hide gallery viewer when no images */
+    .hidden {
+      display: none !important;
+    }
+
+    /* responsive adjustments */
+    @media (max-width: 700px) {
+      .nav-arrow {
+        width: 44px;
+        height: 44px;
+        font-size: 1.6rem;
+      }
+      .image-stage {
+        min-height: 40vh;
+        border-radius: 18px;
+      }
+      .gallery-header h1 {
+        font-size: 1.3rem;
+      }
+      .folder-badge {
+        font-size: 1rem;
+        padding: 0.15rem 0.7rem;
+      }
+      body { padding: 1rem; }
+    }
+
+    @media (max-width: 480px) {
+      .nav-arrow {
+        width: 38px;
+        height: 38px;
+        font-size: 1.4rem;
+      }
+      .viewer { gap: 0.3rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="gallery-container">
+    <!-- header only shows folder number, no navigation -->
+    <div class="gallery-header">
+      <h1>
+        <span>📁 Folder</span>
+        <span class="folder-badge" id="folderBadge">…</span>
+      </h1>
+    </div>
+
+    <!-- main viewer: arrows and image -->
+    <div class="viewer" id="viewer">
+      <button class="nav-arrow" id="prevBtn" aria-label="Previous image" disabled>‹</button>
+      <div class="image-stage" id="imageStage">
+        <!-- image inserted here -->
+      </div>
+      <button class="nav-arrow" id="nextBtn" aria-label="Next image" disabled>›</button>
+    </div>
+
+    <!-- image counter / status line -->
+    <div class="image-counter" id="imageCounter">Loading…</div>
+
+    <!-- footer note with folder path -->
+    <div class="footer-note" id="footerNote"></div>
+  </div>
+
+  <script>
+    (function() {
+      // --------------------------------------------------------------
+      // CONFIGURATION
+      // --------------------------------------------------------------
+      const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'bmp', 'svg'];
+      const MAX_IMAGES = 120; // safety limit when scanning
+
+      // --------------------------------------------------------------
+      // DOM elements
+      // --------------------------------------------------------------
+      const folderBadge = document.getElementById('folderBadge');
+      const prevBtn = document.getElementById('prevBtn');
+      const nextBtn = document.getElementById('nextBtn');
+      const imageStage = document.getElementById('imageStage');
+      const imageCounter = document.getElementById('imageCounter');
+      const footerNote = document.getElementById('footerNote');
+      const viewer = document.getElementById('viewer');
+
+      // State
+      let imagePaths = [];        // array of image URLs
+      let currentIndex = 0;
+
+      // --------------------------------------------------------------
+      // Get folder number from URL (last path segment)
+      // --------------------------------------------------------------
+      function getFolderFromUrl() {
+        const params = new URLSearchParams(window.location.search);
+        const folder = params.get('folder');
+        if (folder && /^\d+$/.test(folder)) return folder;
+        return '1';
+      }
+
+      // --------------------------------------------------------------
+      // Check if an image exists (Promise<boolean>)
+      // --------------------------------------------------------------
+      function imageExists(url) {
+        return new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => resolve(true);
+          img.onerror = () => resolve(false);
+          img.src = url;
+        });
+      }
+
+      // --------------------------------------------------------------
+      // Scan folder for images (try sequential names + common patterns)
+      // --------------------------------------------------------------
+      async function scanFolderForImages(folder) {
+        const foundImages = [];
+
+        // Patterns: "1", "01", "image1", "img1", "photo1", "pic1"
+        const patterns = [
+          (num) => `${num}`,
+          (num) => `${num.toString().padStart(2, '0')}`,
+          (num) => `image${num}`,
+          (num) => `img${num}`,
+          (num) => `photo${num}`,
+          (num) => `pic${num}`,
+        ];
+
+        for (let i = 1; i <= MAX_IMAGES; i++) {
+          let found = false;
+
+          for (const pattern of patterns) {
+            const baseName = pattern(i);
+            for (const ext of IMAGE_EXTENSIONS) {
+              const fileName = `${baseName}.${ext}`;
+              const imagePath = `/${folder}/${fileName}`;
+              if (await imageExists(imagePath)) {
+                foundImages.push(imagePath);
+                found = true;
+                break; // break ext loop
+              }
+            }
+            if (found) break; // break pattern loop
+          }
+
+          // Early exit: if we've tried first 10 numbers and found nothing,
+          // further scanning is likely pointless.
+          if (i === 10 && foundImages.length === 0) {
+            break;
+          }
+        }
+
+        // Fallback: try generic names like "cover", "main" if still empty
+        if (foundImages.length === 0) {
+          const fallbackNames = ['cover', 'main', 'header', '1', '2', '3'];
+          for (const name of fallbackNames) {
+            for (const ext of IMAGE_EXTENSIONS) {
+              const path = `/${folder}/${name}.${ext}`;
+              if (await imageExists(path)) {
+                foundImages.push(path);
+                break;
+              }
+            }
+            if (foundImages.length > 0) break;
+          }
+        }
+
+        // Deduplicate (rare but possible)
+        return [...new Set(foundImages)];
+      }
+
+      // --------------------------------------------------------------
+      // Update the UI to show the current image
+      // --------------------------------------------------------------
+      function showCurrentImage() {
+        if (!imagePaths.length) return;
+
+        // Clamp index (safety)
+        if (currentIndex < 0) currentIndex = 0;
+        if (currentIndex >= imagePaths.length) currentIndex = imagePaths.length - 1;
+
+        const src = imagePaths[currentIndex];
+
+        // Build image element
+        const img = document.createElement('img');
+        img.src = src;
+        img.alt = `Image ${currentIndex + 1} of ${imagePaths.length}`;
+        img.loading = 'eager'; // no lazy since it's the only image
+
+        // Replace stage content
+        imageStage.innerHTML = '';
+        imageStage.appendChild(img);
+
+        // Update counter
+        imageCounter.textContent = `${currentIndex + 1} / ${imagePaths.length}`;
+
+        // Update arrow disabled states
+        prevBtn.disabled = currentIndex === 0;
+        nextBtn.disabled = currentIndex === imagePaths.length - 1;
+      }
+
+      // --------------------------------------------------------------
+      // Navigation functions
+      // --------------------------------------------------------------
+      function goPrev() {
+        if (currentIndex > 0) {
+          currentIndex--;
+          showCurrentImage();
+        }
+      }
+
+      function goNext() {
+        if (currentIndex < imagePaths.length - 1) {
+          currentIndex++;
+          showCurrentImage();
+        }
+      }
+
+      // --------------------------------------------------------------
+      // Show an error or empty state
+      // --------------------------------------------------------------
+      function showMessage(message, isError = false) {
+        // Hide viewer, show a message inside the image stage area?
+        // Better: replace the viewer with a clean message.
+        viewer.classList.add('hidden');
+        imageCounter.classList.add('hidden');
+        footerNote.classList.add('hidden');
+
+        // Create a message container if not exists
+        let msgDiv = document.getElementById('globalMessage');
+        if (!msgDiv) {
+          msgDiv = document.createElement('div');
+          msgDiv.id = 'globalMessage';
+          msgDiv.className = 'status-message';
+          document.querySelector('.gallery-container').appendChild(msgDiv);
+        }
+        msgDiv.className = 'status-message' + (isError ? ' error' : '');
+        msgDiv.innerHTML = message;
+      }
+
+      function resetViewerVisibility() {
+        viewer.classList.remove('hidden');
+        imageCounter.classList.remove('hidden');
+        footerNote.classList.remove('hidden');
+        const msgDiv = document.getElementById('globalMessage');
+        if (msgDiv) msgDiv.remove();
+      }
+
+      // --------------------------------------------------------------
+      // Main init
+      // --------------------------------------------------------------
+      async function init() {
+        const folder = getFolderFromUrl();
+        folderBadge.textContent = folder;
+        footerNote.textContent = `📂 /${folder}`;
+
+        // Show loading state
+        resetViewerVisibility();
+        imageStage.innerHTML = `
+          <div style="display:flex; flex-direction:column; align-items:center; gap:1rem; color:#7b9fb8; padding:3rem;">
+            <div style="font-size:2.5rem;">⏳</div>
+            <div>Scanning folder /${folder} for images…</div>
+          </div>
+        `;
+        imageCounter.textContent = 'Loading…';
+        prevBtn.disabled = true;
+        nextBtn.disabled = true;
+
+        // Scan
+        const images = await scanFolderForImages(folder);
+        imagePaths = images;
+
+        if (imagePaths.length === 0) {
+          showMessage(`
+            <i>📭</i>
+            <div style="font-size:1.3rem; font-weight:500;">No images found</div>
+            <div style="font-size:0.95rem; opacity:0.8; max-width:400px;">
+              Folder <strong>/${folder}</strong> appears to be empty or uses different naming.<br>
+              Try naming files: <code>1.jpg</code>, <code>2.png</code>, <code>image1.jpg</code>, etc.
+            </div>
+          `, true);
+          return;
+        }
+
+        // Images found — set up viewer
+        resetViewerVisibility();
+        currentIndex = 0;
+        showCurrentImage();
+
+        // Attach arrow events (remove old listeners to avoid duplicates)
+        // Using onclick property to keep it simple and avoid duplicates
+        prevBtn.onclick = goPrev;
+        nextBtn.onclick = goNext;
+
+        // Keyboard navigation (optional, but nice)
+        window.onkeydown = (e) => {
+          if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            goPrev();
+          } else if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            goNext();
+          }
+        };
+
+        // Update footer note with count
+        footerNote.textContent = `📂 /${folder}  ·  ${imagePaths.length} image${imagePaths.length > 1 ? 's' : ''}`;
+      }
+
+      // Start
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+      } else {
+        init();
+      }
+    })();
+  </script>
+</body>
+</html>
