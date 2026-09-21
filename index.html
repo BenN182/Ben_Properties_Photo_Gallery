@@ -2,108 +2,240 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>📸 Gallery</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      height: 100%;
+      overflow: hidden;
+      overscroll-behavior: none;
+    }
+
     body {
       background: #0b1a26;
       font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      min-height: 100vh; color: #e7f1f9; padding: 1.5rem;
+      color: #e7f1f9;
+      display: flex;
+      flex-direction: column;
+      height: 100dvh; /* dynamic viewport height — accounts for mobile browser bars */
+      width: 100%;
     }
-    .gallery-container {
-      max-width: 1200px; width: 100%;
-      display: flex; flex-direction: column; align-items: center; gap: 1.2rem;
+
+    /* ===== Header: compact ===== */
+    .gallery-header {
+      flex-shrink: 0;
+      text-align: center;
+      padding: 0.6rem 0.8rem 0.4rem;
     }
-    .gallery-header { text-align: center; padding: 0.5rem 0 0.2rem; }
     .gallery-header h1 {
-      font-weight: 400; font-size: 1.6rem; color: #a6cee3;
-      display: flex; align-items: center; justify-content: center; gap: 0.6rem;
+      font-weight: 400;
+      font-size: 1rem;
+      color: #a6cee3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
     }
     .folder-badge {
-      background: #1e6f9f; color: white; padding: 0.2rem 0.9rem;
-      border-radius: 40px; font-size: 1.2rem; font-weight: 500;
+      background: #1e6f9f;
+      color: white;
+      padding: 0.15rem 0.75rem;
+      border-radius: 40px;
+      font-size: 0.9rem;
+      font-weight: 500;
     }
+
+    /* ===== Viewer: fills the rest of the screen ===== */
     .viewer {
-      position: relative; width: 100%;
-      display: flex; align-items: center; justify-content: center; gap: 0.5rem;
+      flex: 1 1 auto;
+      position: relative;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 0; /* allows flex to shrink */
+      padding: 0.25rem;
     }
+
     .image-stage {
-      position: relative; flex: 1; background: #112433; border-radius: 24px;
-      overflow: hidden; box-shadow: 0 25px 45px -12px rgba(0,0,0,0.7), 0 0 0 1px #1f3c50;
-      display: flex; align-items: center; justify-content: center;
-      min-height: 55vh; max-height: 75vh; aspect-ratio: 16/10;
+      position: relative;
+      flex: 1;
+      height: 100%;
+      background: #05101a;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 0 0 1px #1f3c50;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 0;
     }
+
     .image-stage img {
-      width: 100%; height: 100%; object-fit: contain; display: block; background: #0b1a26;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      user-select: none;
+      -webkit-user-drag: none;
+      touch-action: pan-y;
     }
+
+    /* ===== Arrows: big tap targets on mobile ===== */
     .nav-arrow {
-      background: rgba(20,50,70,0.8); backdrop-filter: blur(6px);
-      border: 1px solid #2d5c7a; color: #e0f0ff;
-      width: 58px; height: 58px; border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 2rem; cursor: pointer; user-select: none;
-      transition: all 0.2s ease; flex-shrink: 0; padding-bottom: 4px;
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 10;
+      background: rgba(10, 30, 45, 0.55);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(80, 140, 180, 0.5);
+      color: #e0f0ff;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2rem;
+      font-weight: 300;
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s, opacity 0.15s, transform 0.1s;
+      padding-bottom: 4px;
+      -webkit-tap-highlight-color: transparent;
     }
-    .nav-arrow:hover:not(:disabled) { background: #1e6f9f; transform: scale(1.05); }
-    .nav-arrow:disabled { opacity: 0.2; cursor: not-allowed; }
+    .nav-arrow:hover:not(:disabled) { background: rgba(30, 111, 159, 0.85); }
+    .nav-arrow:active:not(:disabled) { transform: translateY(-50%) scale(0.92); }
+    .nav-arrow:disabled { opacity: 0.15; cursor: not-allowed; }
+
+    #prevBtn { left: max(8px, env(safe-area-inset-left)); }
+    #nextBtn { right: max(8px, env(safe-area-inset-right)); }
+
+    /* ===== Counter overlay: floats on top of image ===== */
     .image-counter {
-      font-size: 1rem; color: #8bb5d0; background: #0e1e2b;
-      padding: 0.5rem 1.6rem; border-radius: 50px; border: 1px solid #1d3c51;
+      position: absolute;
+      bottom: max(10px, env(safe-area-inset-bottom));
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      font-size: 0.85rem;
+      color: #d8ecff;
+      background: rgba(10, 25, 40, 0.7);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      padding: 0.35rem 1rem;
+      border-radius: 50px;
+      border: 1px solid rgba(80, 140, 180, 0.4);
+      letter-spacing: 0.05em;
+      pointer-events: none;
+      white-space: nowrap;
     }
+
+    /* ===== Footer: hidden on mobile to save space ===== */
+    .footer-note {
+      flex-shrink: 0;
+      font-size: 0.7rem;
+      color: #5c7f97;
+      text-align: center;
+      padding: 0.3rem 0.5rem 0.5rem;
+    }
+
+    /* ===== Status message ===== */
     .status-message {
-      text-align: center; padding: 3rem 2rem; background: #0e1e2b;
-      border-radius: 28px; width: 100%; font-size: 1.1rem; color: #b3d6ef;
-      border: 1px solid #1f3c50; display: flex; flex-direction: column;
-      align-items: center; gap: 0.8rem;
+      flex: 1;
+      margin: 0.5rem;
+      padding: 2rem 1.5rem;
+      background: #0e1e2b;
+      border-radius: 20px;
+      font-size: 1rem;
+      color: #b3d6ef;
+      border: 1px solid #1f3c50;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.8rem;
+      text-align: center;
     }
     .status-message i { font-style: normal; font-size: 2.5rem; line-height: 1; }
     .status-message.error { background: #2a1b1a; color: #f4b9b0; border-color: #663a35; }
-    .footer-note { font-size: 0.8rem; color: #5c7f97; text-align: center; margin-top: 0.5rem; }
+
     .hidden { display: none !important; }
+
+    /* ===== Mobile optimizations ===== */
     @media (max-width: 700px) {
+      .gallery-header { padding: 0.4rem 0.6rem 0.2rem; }
+      .gallery-header h1 { font-size: 0.9rem; }
+      .folder-badge { font-size: 0.8rem; padding: 0.1rem 0.6rem; }
+
+      .viewer { padding: 0; }
+      .image-stage { border-radius: 0; box-shadow: none; }
+
+      .nav-arrow {
+        width: 48px;
+        height: 48px;
+        font-size: 1.7rem;
+      }
+
+      .image-counter {
+        font-size: 0.75rem;
+        padding: 0.3rem 0.85rem;
+        bottom: max(12px, env(safe-area-inset-bottom));
+      }
+
+      /* hide footer on phones to give more room to image */
+      .footer-note { display: none; }
+    }
+
+    /* Even smaller phones */
+    @media (max-width: 380px) {
+      .nav-arrow { width: 42px; height: 42px; font-size: 1.5rem; }
+    }
+
+    /* Landscape phone */
+    @media (max-height: 500px) and (orientation: landscape) {
+      .gallery-header { display: none; }
+      .footer-note { display: none; }
       .nav-arrow { width: 44px; height: 44px; font-size: 1.6rem; }
-      .image-stage { min-height: 40vh; border-radius: 18px; }
     }
   </style>
 </head>
 <body>
-  <div class="gallery-container">
-    <div class="gallery-header">
-      <h1><span>📁 Folder</span> <span class="folder-badge" id="folderBadge">…</span></h1>
-    </div>
+  <div class="gallery-header">
+    <h1><span>📁 Folder</span> <span class="folder-badge" id="folderBadge">…</span></h1>
+  </div>
 
-    <div class="viewer hidden" id="viewer">
-      <button class="nav-arrow" id="prevBtn" aria-label="Previous" disabled>‹</button>
-      <div class="image-stage" id="imageStage"></div>
-      <button class="nav-arrow" id="nextBtn" aria-label="Next" disabled>›</button>
-    </div>
-
+  <div class="viewer hidden" id="viewer">
+    <button class="nav-arrow" id="prevBtn" aria-label="Previous" disabled>‹</button>
+    <div class="image-stage" id="imageStage"></div>
+    <button class="nav-arrow" id="nextBtn" aria-label="Next" disabled>›</button>
     <div class="image-counter hidden" id="imageCounter">Loading…</div>
-    <div class="footer-note" id="footerNote"></div>
+  </div>
 
-    <div class="status-message" id="statusMessage">
-      <i>⏳</i>
-      <div>Loading…</div>
-    </div>
+  <div class="footer-note" id="footerNote"></div>
+
+  <div class="status-message" id="statusMessage">
+    <i>⏳</i>
+    <div>Loading…</div>
   </div>
 
   <script>
     (function() {
       // ============================================================
-      // CONFIG — tuned for files named 1.jpg, 2.jpg, 3.jpg...
+      // CONFIG
       // ============================================================
-      const IMAGE_EXTENSIONS = ['jpg'];  // add 'jpeg','png' if you mix them
-      const MISSING_TOLERANCE = 3;       // stop after N consecutive misses
-      const MAX_IMAGES = 300;            // hard cap
-      const USE_CACHE = true;            // cache results in sessionStorage
+      const IMAGE_EXTENSIONS = ['jpg'];
+      const MISSING_TOLERANCE = 3;
+      const MAX_IMAGES = 300;
+      const USE_CACHE = true;
 
-      // Patterns to try per number. Order matters — first match wins.
-      // Add more if your filenames vary (e.g. property1, photo1).
       const PATTERNS = [
-        (n) => `${n}`,                          // 1, 2, 3
-        (n) => `${String(n).padStart(2, '0')}`, // 01, 02, 03
+        (n) => `${n}`,
+        (n) => `${String(n).padStart(2, '0')}`,
       ];
 
       // ============================================================
@@ -122,7 +254,7 @@
       let currentIndex = 0;
 
       // ============================================================
-      // Base path detection
+      // Helpers
       // ============================================================
       function getBasePath() {
         const path = window.location.pathname.replace(/\/$/, '');
@@ -131,9 +263,6 @@
         return '/' + parts.join('/');
       }
 
-      // ============================================================
-      // Folder from URL
-      // ============================================================
       function getFolder() {
         const params = new URLSearchParams(window.location.search);
         const q = params.get('folder');
@@ -146,13 +275,7 @@
         return '1';
       }
 
-      // ============================================================
-      // Fast image existence check
-      // - Uses HEAD fetch
-      // - Short-circuits on first success
-      // ============================================================
       async function checkNumber(folderPath, n) {
-        // Try each pattern × each extension, but in parallel
         const candidates = [];
         for (const patternFn of PATTERNS) {
           const base = patternFn(n);
@@ -160,35 +283,27 @@
             candidates.push(`${folderPath}/${base}.${ext}`);
           }
         }
-
         const results = await Promise.all(
           candidates.map(async (url) => {
             try {
               const res = await fetch(url, { method: 'HEAD', cache: 'force-cache' });
               return res.ok ? url : null;
-            } catch {
-              return null;
-            }
+            } catch { return null; }
           })
         );
-
         return results.find(Boolean) || null;
       }
 
-      // ============================================================
-      // Scan folder — fully parallel
-      // ============================================================
       async function scanFolder(folder, basePath) {
         const cacheKey = `gallery:${basePath}/${folder}`;
 
-        // Try cache first
         if (USE_CACHE) {
           try {
             const cached = sessionStorage.getItem(cacheKey);
             if (cached) {
               const parsed = JSON.parse(cached);
               if (Array.isArray(parsed) && parsed.length) {
-                console.log('[Gallery] Using cached result:', parsed.length, 'images');
+                console.log('[Gallery] Cache hit:', parsed.length, 'images');
                 return parsed;
               }
             }
@@ -196,10 +311,6 @@
         }
 
         const folderPath = `${basePath}/${folder}`;
-
-        // Scan in parallel chunks to keep it fast but not overwhelming.
-        // We scan up to MAX_IMAGES numbers. Since requests run in parallel,
-        // this is very fast.
         const chunkSize = 20;
         const found = [];
         let consecutiveMisses = 0;
@@ -209,14 +320,12 @@
           for (let i = start; i < start + chunkSize && i <= MAX_IMAGES; i++) {
             chunkNums.push(i);
           }
-
           const chunkResults = await Promise.all(
             chunkNums.map((n) => checkNumber(folderPath, n))
           );
 
           let stop = false;
-          for (let j = 0; j < chunkResults.length; j++) {
-            const url = chunkResults[j];
+          for (const url of chunkResults) {
             if (url) {
               found.push(url);
               consecutiveMisses = 0;
@@ -228,17 +337,13 @@
               }
             }
           }
-
           if (stop) break;
-          // If first chunk found nothing at all, bail early
           if (found.length === 0 && start === 1 && consecutiveMisses >= chunkSize) break;
         }
 
-        // Save to cache
         if (USE_CACHE && found.length) {
           try { sessionStorage.setItem(cacheKey, JSON.stringify(found)); } catch {}
         }
-
         return found;
       }
 
@@ -247,7 +352,6 @@
       // ============================================================
       function showStatus(html, isError = false) {
         viewer.classList.add('hidden');
-        imageCounter.classList.add('hidden');
         statusMessage.classList.remove('hidden');
         statusMessage.className = 'status-message' + (isError ? ' error' : '');
         statusMessage.innerHTML = html;
@@ -256,7 +360,6 @@
       function hideStatus() {
         statusMessage.classList.add('hidden');
         viewer.classList.remove('hidden');
-        imageCounter.classList.remove('hidden');
       }
 
       function renderCurrent() {
@@ -270,19 +373,16 @@
         img.alt = `Image ${currentIndex + 1} of ${imagePaths.length}`;
         imageStage.appendChild(img);
 
-        // Preload the next image so navigating feels instant
-        const next = imagePaths[currentIndex + 1];
-        if (next) {
-          const pre = new Image();
-          pre.src = next;
-        }
-        const prev = imagePaths[currentIndex - 1];
-        if (prev) {
-          const pre = new Image();
-          pre.src = prev;
-        }
+        // Preload neighbors
+        [currentIndex + 1, currentIndex - 1].forEach((i) => {
+          if (imagePaths[i]) {
+            const pre = new Image();
+            pre.src = imagePaths[i];
+          }
+        });
 
         imageCounter.textContent = `${currentIndex + 1} / ${imagePaths.length}`;
+        imageCounter.classList.remove('hidden');
         prevBtn.disabled = currentIndex === 0;
         nextBtn.disabled = currentIndex === imagePaths.length - 1;
       }
@@ -308,17 +408,17 @@
         const t0 = performance.now();
         const images = await scanFolder(folder, basePath);
         const t1 = performance.now();
-        console.log(`[Gallery] Found ${images.length} images in ${(t1 - t0).toFixed(0)}ms:`, images);
+        console.log(`[Gallery] Found ${images.length} images in ${(t1 - t0).toFixed(0)}ms`);
 
         imagePaths = images;
 
         if (images.length === 0) {
           showStatus(`
             <i>📭</i>
-            <div style="font-size:1.2rem; font-weight:500;">No images found</div>
-            <div style="font-size:0.9rem; opacity:0.85; max-width:450px;">
+            <div style="font-size:1.1rem; font-weight:500;">No images found</div>
+            <div style="font-size:0.85rem; opacity:0.85; max-width:450px;">
               Scanned: <code>${basePath}/${folder}/</code><br><br>
-              Looking for files named like: <code>1.jpg</code>, <code>2.jpg</code>, <code>01.jpg</code>…
+              Looking for: <code>1.jpg</code>, <code>2.jpg</code>, <code>01.jpg</code>…
             </div>
           `, true);
           return;
@@ -336,6 +436,33 @@
         };
 
         footerNote.textContent = `📂 ${basePath}/${folder} · ${images.length} image${images.length > 1 ? 's' : ''}`;
+
+        // ============================================================
+        // Touch gestures: swipe left/right to navigate (mobile)
+        // ============================================================
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let touchEndX = 0;
+        let touchEndY = 0;
+
+        imageStage.addEventListener('touchstart', (e) => {
+          touchStartX = e.changedTouches[0].screenX;
+          touchStartY = e.changedTouches[0].screenY;
+        }, { passive: true });
+
+        imageStage.addEventListener('touchend', (e) => {
+          touchEndX = e.changedTouches[0].screenX;
+          touchEndY = e.changedTouches[0].screenY;
+
+          const dx = touchEndX - touchStartX;
+          const dy = touchEndY - touchStartY;
+
+          // Only trigger if horizontal swipe is dominant and > 40px
+          if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+            if (dx < 0) goNext();      // swiped left → next
+            else goPrev();             // swiped right → previous
+          }
+        }, { passive: true });
       }
 
       if (document.readyState === 'loading') {
