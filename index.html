@@ -92,26 +92,18 @@
   <script>
     (function() {
       // ============================================================
-      // CONFIG
+      // CONFIG — tuned for files named 1.jpg, 2.jpg, 3.jpg...
       // ============================================================
-      const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
-      
-      // Stop scanning after this many consecutive missing numbers
-      // (once we've already found at least one image)
-      const MISSING_TOLERANCE = 5;
-      
-      // Hard upper limit to avoid runaway scans
-      const MAX_IMAGES = 500;
+      const IMAGE_EXTENSIONS = ['jpg'];  // add 'jpeg','png' if you mix them
+      const MISSING_TOLERANCE = 3;       // stop after N consecutive misses
+      const MAX_IMAGES = 300;            // hard cap
+      const USE_CACHE = true;            // cache results in sessionStorage
 
-      // Filename patterns. Since your files are "1.jpg", "2.jpg", etc.,
-      // the first pattern handles them. The others are fallbacks.
+      // Patterns to try per number. Order matters — first match wins.
+      // Add more if your filenames vary (e.g. property1, photo1).
       const PATTERNS = [
-        (n) => `${n}`,                          // 1, 2, 3, ...
+        (n) => `${n}`,                          // 1, 2, 3
         (n) => `${String(n).padStart(2, '0')}`, // 01, 02, 03
-        (n) => `image${n}`,
-        (n) => `img${n}`,
-        (n) => `photo${n}`,
-        (n) => `pic${n}`,
       ];
 
       // ============================================================
@@ -130,19 +122,17 @@
       let currentIndex = 0;
 
       // ============================================================
-      // Base path detection (works on github.io and localhost)
+      // Base path detection
       // ============================================================
       function getBasePath() {
         const path = window.location.pathname.replace(/\/$/, '');
         const parts = path.split('/').filter(Boolean);
-        if (parts.length && /^\d+$/.test(parts[parts.length - 1])) {
-          parts.pop();
-        }
+        if (parts.length && /^\d+$/.test(parts[parts.length - 1])) parts.pop();
         return '/' + parts.join('/');
       }
 
       // ============================================================
-      // Folder from URL: supports "/1" and "?folder=1"
+      // Folder from URL
       // ============================================================
       function getFolder() {
         const params = new URLSearchParams(window.location.search);
@@ -157,54 +147,96 @@
       }
 
       // ============================================================
-      // Check image exists
+      // Fast image existence check
+      // - Uses HEAD fetch
+      // - Short-circuits on first success
       // ============================================================
-      async function imageExists(url) {
-        try {
-          const res = await fetch(url, { method: 'HEAD', cache: 'no-store' });
-          return res.ok;
-        } catch {
-          return false;
+      async function checkNumber(folderPath, n) {
+        // Try each pattern × each extension, but in parallel
+        const candidates = [];
+        for (const patternFn of PATTERNS) {
+          const base = patternFn(n);
+          for (const ext of IMAGE_EXTENSIONS) {
+            candidates.push(`${folderPath}/${base}.${ext}`);
+          }
         }
+
+        const results = await Promise.all(
+          candidates.map(async (url) => {
+            try {
+              const res = await fetch(url, { method: 'HEAD', cache: 'force-cache' });
+              return res.ok ? url : null;
+            } catch {
+              return null;
+            }
+          })
+        );
+
+        return results.find(Boolean) || null;
       }
 
       // ============================================================
-      // Scan folder
+      // Scan folder — fully parallel
       // ============================================================
       async function scanFolder(folder, basePath) {
+        const cacheKey = `gallery:${basePath}/${folder}`;
+
+        // Try cache first
+        if (USE_CACHE) {
+          try {
+            const cached = sessionStorage.getItem(cacheKey);
+            if (cached) {
+              const parsed = JSON.parse(cached);
+              if (Array.isArray(parsed) && parsed.length) {
+                console.log('[Gallery] Using cached result:', parsed.length, 'images');
+                return parsed;
+              }
+            }
+          } catch {}
+        }
+
         const folderPath = `${basePath}/${folder}`;
+
+        // Scan in parallel chunks to keep it fast but not overwhelming.
+        // We scan up to MAX_IMAGES numbers. Since requests run in parallel,
+        // this is very fast.
+        const chunkSize = 20;
         const found = [];
         let consecutiveMisses = 0;
 
-        for (let i = 1; i <= MAX_IMAGES; i++) {
-          let foundThisNumber = false;
+        for (let start = 1; start <= MAX_IMAGES; start += chunkSize) {
+          const chunkNums = [];
+          for (let i = start; i < start + chunkSize && i <= MAX_IMAGES; i++) {
+            chunkNums.push(i);
+          }
 
-          for (const patternFn of PATTERNS) {
-            const base = patternFn(i);
-            for (const ext of IMAGE_EXTENSIONS) {
-              const url = `${folderPath}/${base}.${ext}`;
-              if (await imageExists(url)) {
-                found.push(url);
-                foundThisNumber = true;
+          const chunkResults = await Promise.all(
+            chunkNums.map((n) => checkNumber(folderPath, n))
+          );
+
+          let stop = false;
+          for (let j = 0; j < chunkResults.length; j++) {
+            const url = chunkResults[j];
+            if (url) {
+              found.push(url);
+              consecutiveMisses = 0;
+            } else {
+              consecutiveMisses++;
+              if (found.length > 0 && consecutiveMisses >= MISSING_TOLERANCE) {
+                stop = true;
                 break;
               }
             }
-            if (foundThisNumber) break;
           }
 
-          if (foundThisNumber) {
-            consecutiveMisses = 0;
-          } else {
-            consecutiveMisses++;
-            // Stop early if we've found some images and hit a gap
-            if (found.length > 0 && consecutiveMisses >= MISSING_TOLERANCE) {
-              break;
-            }
-            // If we haven't found anything by number 10, give up
-            if (found.length === 0 && i >= 10) {
-              break;
-            }
-          }
+          if (stop) break;
+          // If first chunk found nothing at all, bail early
+          if (found.length === 0 && start === 1 && consecutiveMisses >= chunkSize) break;
+        }
+
+        // Save to cache
+        if (USE_CACHE && found.length) {
+          try { sessionStorage.setItem(cacheKey, JSON.stringify(found)); } catch {}
         }
 
         return found;
@@ -238,6 +270,18 @@
         img.alt = `Image ${currentIndex + 1} of ${imagePaths.length}`;
         imageStage.appendChild(img);
 
+        // Preload the next image so navigating feels instant
+        const next = imagePaths[currentIndex + 1];
+        if (next) {
+          const pre = new Image();
+          pre.src = next;
+        }
+        const prev = imagePaths[currentIndex - 1];
+        if (prev) {
+          const pre = new Image();
+          pre.src = prev;
+        }
+
         imageCounter.textContent = `${currentIndex + 1} / ${imagePaths.length}`;
         prevBtn.disabled = currentIndex === 0;
         nextBtn.disabled = currentIndex === imagePaths.length - 1;
@@ -261,13 +305,12 @@
 
         showStatus(`<i>⏳</i><div>Scanning folder <strong>/${folder}</strong>…</div>`);
 
-        console.log('[Gallery] Base path:', basePath);
-        console.log('[Gallery] Folder:', folder);
-
+        const t0 = performance.now();
         const images = await scanFolder(folder, basePath);
-        imagePaths = images;
+        const t1 = performance.now();
+        console.log(`[Gallery] Found ${images.length} images in ${(t1 - t0).toFixed(0)}ms:`, images);
 
-        console.log('[Gallery] Found', images.length, 'images:', images);
+        imagePaths = images;
 
         if (images.length === 0) {
           showStatus(`
@@ -275,8 +318,7 @@
             <div style="font-size:1.2rem; font-weight:500;">No images found</div>
             <div style="font-size:0.9rem; opacity:0.85; max-width:450px;">
               Scanned: <code>${basePath}/${folder}/</code><br><br>
-              Looking for files named like: <code>1.jpg</code>, <code>2.jpg</code>,
-              <code>01.png</code>, <code>image1.jpg</code>, etc.
+              Looking for files named like: <code>1.jpg</code>, <code>2.jpg</code>, <code>01.jpg</code>…
             </div>
           `, true);
           return;
